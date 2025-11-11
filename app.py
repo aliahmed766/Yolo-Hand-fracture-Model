@@ -4,42 +4,50 @@ import cv2
 from PIL import Image
 import numpy as np
 
-# --- Page Config ---
+# --- Page Setup ---
 st.set_page_config(page_title="Hand Fracture Detection", layout="centered")
-st.title("🖐 Hand Fracture Detection using YOLO")
+st.title("🖐 Hand Fracture Detection App")
+st.write("Upload an X-ray image and the app will detect fractures.")
 
 # --- Load YOLO Model ---
 @st.cache_resource
 def load_model():
-    model = YOLO("best.pt")  # make sure best.pt is in the same folder
+    # Make sure best.pt is in the same folder
+    model = YOLO("best.pt")
     return model
 
 model = load_model()
+st.success("Model loaded successfully!")
 
-st.write("Model loaded successfully!")
-
-# --- Image Upload ---
+# --- Upload Image ---
 uploaded_file = st.file_uploader("Upload an X-ray image", type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
-    # Convert uploaded file to OpenCV format
+    # Open the image
     image = Image.open(uploaded_file).convert("RGB")
     image_np = np.array(image)
+    
+    # Display uploaded image
     st.image(image, caption="Uploaded Image", use_column_width=True)
-
-    # Run prediction
-    results = model.predict(image_np, imgsz=640)
     
-    # Draw boxes on image
-    annotated_frame = results[0].plot()
-    annotated_image = Image.fromarray(annotated_frame)
+    # --- Run Prediction ---
+    with st.spinner("Detecting fractures..."):
+        results = model.predict(image_np, imgsz=640)
     
-    st.image(annotated_image, caption="Prediction", use_column_width=True)
-
+    # Annotate image with bounding boxes
+    annotated_image = results[0].plot()  # draws boxes
+    annotated_image = Image.fromarray(annotated_image)
+    
+    # Display prediction
+    st.image(annotated_image, caption="Predicted Fractures", use_column_width=True)
+    
     # Show class names and confidence
-    st.write("Predictions:")
+    st.subheader("Detected Fractures")
     for r in results:
-        for box in r.boxes:
-            cls = r.names[int(box.cls[0])]
-            conf = float(box.conf[0])
-            st.write(f"- {cls} : {conf:.2f}")
+        if hasattr(r, 'boxes'):
+            for box in r.boxes:
+                cls = r.names[int(box.cls[0])]
+                conf = float(box.conf[0])
+                st.write(f"- {cls} : {conf:.2f}")
+        else:
+            st.write("No fractures detected.")
