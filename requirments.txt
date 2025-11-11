@@ -1,10 +1,10 @@
-ultralytics
 streamlit
-opencv-python
-pillow
 torch
 torchvision
+opencv-python
+pillow
 numpy
 matplotlib
 scipy
 pandas
+git+https://github.com/ultralytics/ultralytics.git
