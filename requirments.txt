@@ -8,3 +8,4 @@ numpy
 matplotlib
 scipy
 pandas
+python-3.11.8
