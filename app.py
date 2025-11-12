@@ -1,47 +1,49 @@
 import streamlit as st
-from ultralytics import YOLO
 from PIL import Image
+import yaml
+from ultralytics import YOLO
 import numpy as np
 
-st.set_page_config(page_title="Hand Fracture Detection", layout="centered")
+# -----------------------
+# Load class names from data.yaml
+# -----------------------
+with open("data.yaml", "r") as file:
+    data = yaml.safe_load(file)
+class_names = data['names']  # ['Fracture']
 
-st.title("🦴 Hand Fracture Detection | YOLOv8")
-st.write("Upload an X-ray hand image to detect fractures using an AI model.")
+# -----------------------
+# Load YOLO model
+# -----------------------
+model = YOLO("best.pt")  # Make sure your trained weights are saved as best.pt
 
-# ✅ Load YOLO model
-@st.cache_resource
-def load_model():
-    try:
-        return YOLO("best.pt")
-    except Exception as e:
-        st.error(f"Model failed to load: {e}")
-        return None
+# -----------------------
+# Streamlit App
+# -----------------------
+st.title("Hand Fracture Detection")
+st.write("Upload an X-ray image to detect fractures.")
 
-model = load_model()
+uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
-# ✅ Upload image
-uploaded_file = st.file_uploader("Upload Hand X-ray Image", type=["jpg", "jpeg", "png"])
-
-if uploaded_file and model:
-    img = Image.open(uploaded_file).convert("RGB")
-    st.image(img, caption="Uploaded Image", use_column_width=True)
-
-    img_array = np.array(img)
-
-    st.write("🔍 Detecting fractures...")
-
-    try:
-        # ✅ Run inference
-        results = model.predict(img_array)
-
-        # ✅ Use PIL result (no cv2 needed)
-        result_img = Image.fromarray(results[0].plot())
-
-        st.image(result_img, caption="Detection Result", use_column_width=True)
-        st.success("✅ Detection Complete")
-
-    except Exception as e:
-        st.error(f"Error during detection: {e}")
-
-else:
-    st.info("Please upload an image to begin.")
+if uploaded_file:
+    # Display uploaded image
+    image = Image.open(uploaded_file).convert("RGB")
+    st.image(image, caption='Uploaded Image', use_column_width=True)
+    
+    # Predict with YOLO
+    results = model.predict(np.array(image))
+    
+    # Loop through results and display
+    for result in results:
+        boxes = result.boxes
+        if len(boxes) > 0:
+            st.success("Fracture detected!")
+            for box, cls_id, conf in zip(boxes.xyxy, boxes.cls, boxes.conf):
+                x1, y1, x2, y2 = map(int, box)
+                label = class_names[int(cls_id)]
+                st.write(f"Class: {label}, Confidence: {conf:.2f}, Box: [{x1}, {y1}, {x2}, {y2}]")
+            
+            # Show image with boxes
+            annotated_image = result.plot()
+            st.image(annotated_image, caption="Detected Fractures", use_column_width=True)
+        else:
+            st.info("No fracture detected in this image.")
