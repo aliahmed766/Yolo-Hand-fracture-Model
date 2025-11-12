@@ -1,7 +1,9 @@
 streamlit
-ultralytics==8.2.34
-opencv-python-headless==4.10.0.84
 torch
 torchvision
+torchaudio
+opencv-python
+Pillow
 numpy
-pillow
+pandas
+yolov5
