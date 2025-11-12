@@ -1,53 +1,59 @@
-import streamlit as st
 import sys
-import torch
+import streamlit as st
 from ultralytics import YOLO
 from PIL import Image
 import numpy as np
+import cv2
+import tempfile
 
-# ✅ Check Python version (debug helper)
-st.write("🧩 Python version:", sys.version)
+# --- Debug info (can remove later) ---
+st.write("Python version:", sys.version)
 
-# ✅ Page title
-st.title("🖐️ Hand Fracture Detection using YOLOv8")
-st.write("Upload an X-ray image of a hand to detect fractures using your trained YOLO model.")
+# --- Streamlit page setup ---
+st.set_page_config(page_title="Hand Fracture Detection", page_icon="🖐️", layout="centered")
+st.title("🦴 Hand Fracture Detection using YOLO")
 
-# ✅ Load YOLO model
+# --- Load YOLO model ---
 @st.cache_resource
 def load_model():
-    model = YOLO("best.pt")  # Ensure 'best.pt' is in the same folder
+    model = YOLO("best.pt")  # Make sure best.pt is in the same repo
     return model
 
 try:
     model = load_model()
-    st.success("✅ Model loaded successfully!")
+    st.success("YOLO model loaded successfully ✅")
 except Exception as e:
-    st.error("❌ Failed to load YOLO model. Make sure 'best.pt' is in the app directory.")
-    st.stop()
+    st.error(f"Error loading YOLO model: {e}")
 
-# ✅ File uploader
-uploaded_file = st.file_uploader("Upload an X-ray image", type=["jpg", "jpeg", "png"])
+# --- Image upload section ---
+uploaded_file = st.file_uploader("Upload a hand X-ray image", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
-    # Read image
-    image = Image.open(uploaded_file)
-    st.image(image, caption="🩻 Uploaded Image", use_column_width=True)
+    # Display uploaded image
+    image = Image.open(uploaded_file).convert("RGB")
+    st.image(image, caption="Uploaded Image", use_column_width=True)
 
-    # Run YOLO detection
+    # Save to temporary file (needed for YOLO inference)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+        image.save(temp_file.name)
+        temp_path = temp_file.name
+
+    # --- Run YOLO detection ---
     st.write("🔍 Detecting fractures...")
-    results = model.predict(image, conf=0.25)
+    results = model(temp_path)
 
-    # Convert result to image for display
-    res_plotted = results[0].plot()
-    st.image(res_plotted, caption="✅ Detection Results", use_column_width=True)
+    # --- Process and display results ---
+    for r in results:
+        # Render YOLO output with bounding boxes
+        annotated_frame = r.plot()  # returns a numpy array (BGR)
+        annotated_frame = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
+        st.image(annotated_frame, caption="Detection Result", use_column_width=True)
 
-    # Show detection labels and confidence
-    st.subheader("📊 Detection Summary")
-    for box in results[0].boxes:
-        cls = int(box.cls[0])
-        conf = float(box.conf[0])
-        label = model.names[cls] if model.names else f"Class {cls}"
-        st.write(f"**{label}** – Confidence: {conf:.2f}")
-
+    # --- Show detection summary ---
+    detections = results[0].boxes
+    if len(detections) > 0:
+        st.success(f"✅ {len(detections)} fracture(s) detected.")
+    else:
+        st.warning("❌ No fractures detected.")
 else:
-    st.info("📤 Please upload an image to begin detection.")
+    st.info("Please upload an image to begin.")
