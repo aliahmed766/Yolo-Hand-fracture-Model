@@ -1,10 +1,7 @@
-streamlit
+ultralytics==8.3.227
+streamlit==1.49.1
+opencv-python
+pillow
 torch
 torchvision
-opencv-python-headless
-pillow
 numpy
-matplotlib
-scipy
-pandas
-git+https://github.com/ultralytics/ultralytics.git
