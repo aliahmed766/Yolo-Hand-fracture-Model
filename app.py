@@ -1,17 +1,12 @@
 import streamlit as st
 from PIL import Image
 import numpy as np
-import torch
+from ultralytics import YOLO
 
-# Load YOLOv5 model
+# Load model
 @st.cache_resource
 def load_model():
-    model = torch.hub.load(
-        'ultralytics/yolov5',
-        'custom',
-        path='models/best.pt',   # your model file
-        force_reload=False
-    )
+    model = YOLO("models/best.pt")   # <-- make sure best.pt is inside /models
     return model
 
 st.title("🦴 Fracture Detection App")
@@ -28,11 +23,13 @@ if uploaded_file:
     img_array = np.array(image)
 
     with st.spinner("Detecting fracture..."):
-        results = model(img_array)
+        results = model.predict(img_array)[0]
+
+    # Draw bounding boxes
+    annotated = results.plot()  # YOLO returns image with boxes
 
     st.subheader("✅ Detection Result")
-    output_image = results.render()[0]
-    st.image(output_image, caption="Detected Fracture", use_column_width=True)
+    st.image(annotated, caption="Detected Fracture", use_column_width=True)
 
-    st.subheader("📄 Raw Model Output")
-    st.write(results.pandas().xyxy[0])
+    st.subheader("📄 Raw Predictions")
+    st.write(results.boxes.data.cpu().numpy())

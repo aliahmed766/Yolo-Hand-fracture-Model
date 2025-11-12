@@ -1,9 +1,5 @@
 streamlit
-torch
-torchvision
-torchaudio
+ultralytics
 opencv-python
 Pillow
 numpy
-pandas
-yolov5
