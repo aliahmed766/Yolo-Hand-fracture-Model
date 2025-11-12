@@ -1,53 +1,53 @@
 import streamlit as st
+import sys
+import torch
 from ultralytics import YOLO
-import cv2
 from PIL import Image
 import numpy as np
 
-# --- Page Setup ---
-st.set_page_config(page_title="Hand Fracture Detection", layout="centered")
-st.title("🖐 Hand Fracture Detection App")
-st.write("Upload an X-ray image and the app will detect fractures.")
+# ✅ Check Python version (debug helper)
+st.write("🧩 Python version:", sys.version)
 
-# --- Load YOLO Model ---
+# ✅ Page title
+st.title("🖐️ Hand Fracture Detection using YOLOv8")
+st.write("Upload an X-ray image of a hand to detect fractures using your trained YOLO model.")
+
+# ✅ Load YOLO model
 @st.cache_resource
 def load_model():
-    # Make sure best.pt is in the same folder
-    model = YOLO("best.pt")
+    model = YOLO("best.pt")  # Ensure 'best.pt' is in the same folder
     return model
 
-model = load_model()
-st.success("Model loaded successfully!")
+try:
+    model = load_model()
+    st.success("✅ Model loaded successfully!")
+except Exception as e:
+    st.error("❌ Failed to load YOLO model. Make sure 'best.pt' is in the app directory.")
+    st.stop()
 
-# --- Upload Image ---
+# ✅ File uploader
 uploaded_file = st.file_uploader("Upload an X-ray image", type=["jpg", "jpeg", "png"])
 
-if uploaded_file:
-    # Open the image
-    image = Image.open(uploaded_file).convert("RGB")
-    image_np = np.array(image)
-    
-    # Display uploaded image
-    st.image(image, caption="Uploaded Image", use_column_width=True)
-    
-    # --- Run Prediction ---
-    with st.spinner("Detecting fractures..."):
-        results = model.predict(image_np, imgsz=640)
-    
-    # Annotate image with bounding boxes
-    annotated_image = results[0].plot()  # draws boxes
-    annotated_image = Image.fromarray(annotated_image)
-    
-    # Display prediction
-    st.image(annotated_image, caption="Predicted Fractures", use_column_width=True)
-    
-    # Show class names and confidence
-    st.subheader("Detected Fractures")
-    for r in results:
-        if hasattr(r, 'boxes'):
-            for box in r.boxes:
-                cls = r.names[int(box.cls[0])]
-                conf = float(box.conf[0])
-                st.write(f"- {cls} : {conf:.2f}")
-        else:
-            st.write("No fractures detected.")
+if uploaded_file is not None:
+    # Read image
+    image = Image.open(uploaded_file)
+    st.image(image, caption="🩻 Uploaded Image", use_column_width=True)
+
+    # Run YOLO detection
+    st.write("🔍 Detecting fractures...")
+    results = model.predict(image, conf=0.25)
+
+    # Convert result to image for display
+    res_plotted = results[0].plot()
+    st.image(res_plotted, caption="✅ Detection Results", use_column_width=True)
+
+    # Show detection labels and confidence
+    st.subheader("📊 Detection Summary")
+    for box in results[0].boxes:
+        cls = int(box.cls[0])
+        conf = float(box.conf[0])
+        label = model.names[cls] if model.names else f"Class {cls}"
+        st.write(f"**{label}** – Confidence: {conf:.2f}")
+
+else:
+    st.info("📤 Please upload an image to begin detection.")
