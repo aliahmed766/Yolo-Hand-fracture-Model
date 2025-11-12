@@ -1,13 +1,12 @@
 import streamlit as st
+from ultralytics import YOLO
 from PIL import Image
 import numpy as np
-from ultralytics import YOLO
 
-# Load model
+# Load YOLO model from root folder
 @st.cache_resource
 def load_model():
-    model = YOLO("models/best.pt")   # <-- make sure best.pt is inside /models
-    return model
+    return YOLO("best.pt")   # ✅ Your model file in root
 
 st.title("🦴 Fracture Detection App")
 st.write("Upload an X-ray image, and the model will detect any fractures.")
@@ -23,13 +22,12 @@ if uploaded_file:
     img_array = np.array(image)
 
     with st.spinner("Detecting fracture..."):
-        results = model.predict(img_array)[0]
+        result = model.predict(img_array)[0]
 
-    # Draw bounding boxes
-    annotated = results.plot()  # YOLO returns image with boxes
+    annotated = result.plot()
 
     st.subheader("✅ Detection Result")
     st.image(annotated, caption="Detected Fracture", use_column_width=True)
 
-    st.subheader("📄 Raw Predictions")
-    st.write(results.boxes.data.cpu().numpy())
+    st.subheader("📄 Raw Model Output")
+    st.write(result.boxes.data.cpu().numpy())
