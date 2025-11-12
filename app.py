@@ -1,110 +1,56 @@
 import streamlit as st
+import sys
+import os
+
+# ✅ Fix OpenCV issues on Streamlit Cloud
+os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
+import cv2
+cv2.setNumThreads(1)
+sys.modules['cv2'] = cv2
+
+from ultralytics import YOLO
 from PIL import Image
 import numpy as np
-from ultralytics import YOLO
-import tempfile
-import os
-import torch
 
-# ✅ FIX FOR PYTORCH 2.6 – allow YOLO model loading
-from ultralytics.nn.tasks import DetectionModel
-torch.serialization.add_safe_globals([DetectionModel])
+st.set_page_config(page_title="Hand Fracture Detection", layout="centered")
 
-# Streamlit page config
-st.set_page_config(
-    page_title="Hand Fracture Detection",
-    page_icon="🦴",
-    layout="wide"
-)
+st.title("🦴 Hand Fracture Detection | YOLOv8")
+st.write("Upload an X-ray hand image to detect fractures using an AI model.")
 
-# UI styling
-st.markdown("""
-<style>
-    .main { padding: 2rem; }
-</style>
-""", unsafe_allow_html=True)
-
-# Session state
-if "model" not in st.session_state:
-    st.session_state.model = None
-    st.session_state.model_loaded = False
-
-
+# ✅ Load model safely
 @st.cache_resource
-def load_model(model_path):
+def load_model():
     try:
-        model = YOLO(model_path, task="detect")   # ✅ SAFE LOAD
+        model = YOLO("best.pt")
         return model
     except Exception as e:
         st.error(f"Error loading model: {e}")
         return None
 
+model = load_model()
 
-# Sidebar
-with st.sidebar:
-    st.header("⚙️ Configuration")
+uploaded_file = st.file_uploader("Upload Hand X-ray Image", type=["jpg", "jpeg", "png"])
 
-    model_file = st.file_uploader("Upload best.pt model", type=["pt"])
+if uploaded_file and model:
+    # ✅ Read image
+    img = Image.open(uploaded_file).convert("RGB")
+    st.image(img, caption="Uploaded Image", use_column_width=True)
 
-    confidence = st.slider(
-        "Confidence Threshold", 0.0, 1.0, 0.25, 0.05
-    )
+    # ✅ Convert to numpy
+    img_array = np.array(img)
 
-    iou = st.slider(
-        "IOU Threshold", 0.0, 1.0, 0.45, 0.05
-    )
+    st.write("🔍 Detecting fractures...")
 
+    # ✅ Run inference
+    try:
+        results = model(img_array)
+        result_img = results[0].plot()   # YOLO renders bounding boxes
 
-# ✅ Load uploaded model or best.pt from root
-if model_file is not None:
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        tmp.write(model_file.read())
-        model_path = tmp.name
+        st.image(result_img, caption="Detection Result", use_column_width=True)
+        st.success("✅ Detection Complete")
 
-    with st.spinner("Loading model..."):
-        st.session_state.model = load_model(model_path)
-        st.session_state.model_loaded = True
+    except Exception as e:
+        st.error(f"Error during detection: {e}")
 
 else:
-    if not st.session_state.model_loaded and os.path.exists("best.pt"):
-        with st.spinner("Loading best.pt..."):
-            st.session_state.model = load_model("best.pt")
-            st.session_state.model_loaded = True
-
-
-st.title("🦴 Hand Fracture Detection System")
-st.markdown("<p>Upload an X-ray to detect fractures.</p>",
-            unsafe_allow_html=True)
-
-if not st.session_state.model_loaded:
-    st.warning("⚠️ Please upload your model or place best.pt in root.")
-    st.stop()
-
-# Image upload
-image_file = st.file_uploader("Upload X-ray Image", type=["jpg", "jpeg", "png"])
-
-if image_file:
-    image = Image.open(image_file)
-    st.image(image, caption="Uploaded Image", use_container_width=True)
-
-    if st.button("🔍 Detect Fracture"):
-        with st.spinner("Detecting..."):
-            img_array = np.array(image)
-
-            results = st.session_state.model.predict(
-                img_array, conf=confidence, iou=iou
-            )
-
-            annotated = results[0].plot()[:, :, ::-1]  # BGR → RGB
-            st.image(annotated, caption="Detection Result", use_container_width=True)
-
-            import io
-            buf = io.BytesIO()
-            Image.fromarray(annotated).save(buf, format="PNG")
-
-            st.download_button(
-                "📥 Download result",
-                buf.getvalue(),
-                file_name="fracture_result.png",
-                mime="image/png"
-            )
+    st.info("Please upload an image to begin.")
