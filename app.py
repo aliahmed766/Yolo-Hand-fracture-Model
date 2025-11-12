@@ -3,18 +3,26 @@ from PIL import Image
 import yaml
 from ultralytics import YOLO
 import numpy as np
+import os
+
+# -----------------------
+# Paths
+# -----------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+yaml_path = os.path.join(BASE_DIR, "data.yaml")
+model_path = os.path.join(BASE_DIR, "best.pt")  # your trained YOLO weights
 
 # -----------------------
 # Load class names from data.yaml
 # -----------------------
-with open("data.yaml", "r") as file:
+with open(yaml_path, "r") as file:
     data = yaml.safe_load(file)
 class_names = data['names']  # ['Fracture']
 
 # -----------------------
 # Load YOLO model
 # -----------------------
-model = YOLO("best.pt")  # Make sure your trained weights are saved as best.pt
+model = YOLO(model_path)
 
 # -----------------------
 # Streamlit App
@@ -42,7 +50,7 @@ if uploaded_file:
                 label = class_names[int(cls_id)]
                 st.write(f"Class: {label}, Confidence: {conf:.2f}, Box: [{x1}, {y1}, {x2}, {y2}]")
             
-            # Show image with boxes
+            # Show image with boxes drawn
             annotated_image = result.plot()
             st.image(annotated_image, caption="Detected Fractures", use_column_width=True)
         else:
