@@ -1,5 +1,5 @@
 streamlit
 pillow
 numpy
-opencv-python-headless
-ultralytics
+ultralytics[av]==8.2.103
+av
